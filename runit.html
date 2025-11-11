@@ -94,7 +94,10 @@
 
         // --- AI GENERATION LOGIC ---
         const modelName = "gemini-2.5-flash-preview-09-2025";
-        const apiKey = ""; // API key will be provided by the runtime environment
+        // FIX for 403 ERROR: When running outside of the Canvas environment (like on GitHub or locally), 
+        // you MUST replace 'YOUR_GEMINI_API_KEY' with your actual API key obtained from Google AI Studio.
+        // The key is automatically provided when running inside the Canvas environment.
+        const apiKey = "YOUR_GEMINI_API_KEY"; // Replace this placeholder!
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
         const generateBtn = document.getElementById('generateBtn');
@@ -127,7 +130,9 @@
                         await new Promise(resolve => setTimeout(resolve, delay));
                         return callGeminiApi(userQuery, retries + 1); // Exponential backoff retry
                     }
-                    throw new Error(`API call failed with status: ${response.status}`);
+                    // Include the response status in the error message for better debugging
+                    const errorDetails = await response.text();
+                    throw new Error(`API call failed with status: ${response.status}. Details: ${errorDetails}`);
                 }
 
                 const result = await response.json();
@@ -149,6 +154,16 @@
             const userQuery = userPromptEl.value.trim();
             if (userQuery === "") {
                 outputArea.textContent = "Please enter a prompt to generate an idea.";
+                return;
+            }
+            
+            // Check for the placeholder key before proceeding
+            if (apiKey === "AIzaSyCMBBXxI93O2BBtARW8HRG3pWSndP_Nd-E") {
+                outputArea.textContent = "Error: Please replace 'YOUR_GEMINI_API_KEY' in the JavaScript code with your actual Gemini API key to run this outside the Canvas environment. The 403 error is caused by a missing API key.";
+                // Re-enable UI and hide loading
+                generateBtn.disabled = false;
+                loadingSpinner.classList.add('hidden');
+                buttonText.textContent = "Generate Idea";
                 return;
             }
 
