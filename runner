@@ -1,0 +1,1717 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adaptive Runner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overscroll-behavior: none;
+        }
+        .h-full-real {
+            height: calc(100vh - 4rem); /* Adjust 4rem to your header/footer height if any */
+        }
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        /* Custom radio button */
+        .radio-card:checked + label {
+            border-color: #0ea5e9; /* sky-500 */
+            background-color: #0c4a6e; /* sky-900/night-700 */
+        }
+        /* Custom checkbox */
+        .day-checkbox:checked + label {
+            border-color: #0ea5e9; /* sky-500 */
+            background-color: #0c4a6e; /* sky-900/night-700 */
+            color: #fff;
+        }
+        .modal {
+            display: none;
+            /* ... other modal styles */
+        }
+        .modal.flex {
+            display: flex;
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-200 h-full overflow-hidden">
+
+    <div id="app-container" class="h-full">
+
+        <!-- ===== 1. LOADING SPINNER (Full Screen) ===== -->
+        <div id="loading-spinner" class="fixed inset-0 bg-gray-950 z-50 flex flex-col items-center justify-center">
+            <svg class="animate-spin -ml-1 mr-3 h-10 w-10 text-sky-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="mt-4 text-lg text-gray-400">Loading Your Plan...</p>
+        </div>
+
+        <!-- ===== 2. WELCOME / ROUTING SCREEN ===== -->
+        <div id="welcome-screen" class="h-full p-6 flex-col justify-center items-center hidden">
+            <div class="text-center">
+                <svg class="w-16 h-16 mx-auto text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                <h1 class="text-4xl font-bold text-white mt-4">Welcome Back</h1>
+                <p class="text-xl text-gray-400 mt-2">You have a plan in progress.</p>
+            </div>
+            <div class="mt-12 w-full max-w-sm space-y-4">
+                <button id="continue-plan-btn" class="w-full text-lg bg-sky-600 hover:bg-sky-500 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition duration-200">
+                    Continue Plan
+                </button>
+                <button id="restart-plan-btn" class="w-full text-lg bg-gray-700 hover:bg-gray-600 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition duration-200">
+                    Restart Current Plan
+                </button>
+                <button id="new-plan-btn" class="w-full text-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold py-4 px-6 rounded-xl shadow-lg transition duration-200">
+                    Create a New Plan
+                </button>
+            </div>
+        </div>
+
+        <!-- ===== 3. SETUP WIZARD (Full Screen) ===== -->
+        <div id="setup-wizard" class="h-full flex-col hidden">
+            <!-- Progress Bar -->
+            <div class="w-full bg-gray-800">
+                <div id="progress-bar" class="bg-sky-500 h-2" style="width: 0%; transition: width 0.3s ease;"></div>
+            </div>
+
+            <!-- Wizard Content Area -->
+            <div class="flex-grow overflow-y-auto no-scrollbar p-6 pb-24">
+                <form id="setup-form">
+                    
+                    <!-- ===== STEP 1: GOAL & TIMELINE ===== -->
+                    <div id="step-1" class="wizard-step">
+                        <h2 class="text-3xl font-bold text-white">What's your goal?</h2>
+                        <div class="mt-6 space-y-4">
+                            <input type="radio" name="goalTimeline" value="race" id="goal-race" class="sr-only radio-card">
+                            <label for="goal-race" class="block cursor-pointer p-6 bg-gray-800 border-2 border-gray-700 rounded-xl transition duration-200 hover:border-sky-600">
+                                <h3 class="text-xl font-bold">Train for a specific race</h3>
+                                <p class="text-gray-400 mt-1">Pick a race date and we'll build the plan.</p>
+                            </label>
+                            
+                            <input type="radio" name="goalTimeline" value="general" id="goal-general" class="sr-only radio-card">
+                            <label for="goal-general" class="block cursor-pointer p-6 bg-gray-800 border-2 border-gray-700 rounded-xl transition duration-200 hover:border-sky-600">
+                                <h3 class="text-xl font-bold">Train for a general goal</h3>
+                                <p class="text-gray-400 mt-1">Pick a duration and a goal distance (or just fitness).</p>
+                            </label>
+                        </div>
+
+                        <div id="goal-options-container" class="mt-8 space-y-6">
+                            <!-- Common Goal Selection -->
+                            <div>
+                                <label for="race-goal" class="block text-lg font-medium text-gray-300">What's your goal?</label>
+                                <select id="race-goal" name="raceGoal" class="mt-2 block w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-3 text-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500">
+                                    <option value="fitness">General Fitness</option>
+                                    <option value="5k">5k</option>
+                                    <option value="10k">10k</option>
+                                    <option value="half-marathon">Half Marathon</option>
+                                    <option value="full-marathon">Full Marathon</option>
+                                </select>
+                            </div>
+
+                            <!-- Race-specific options -->
+                            <div id="race-date-option" class="hidden">
+                                <label for="race-date" class="block text-lg font-medium text-gray-300">When is your race?</label>
+                                <input type="date" id="race-date" name="raceDate" class="mt-2 block w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-3 text-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500" style="color-scheme: dark;">
+                                <p id="race-date-info" class="text-sm text-gray-400 mt-2 hidden"></p>
+                            </div>
+                            
+                            <!-- General-specific options -->
+                            <div id="plan-duration-option" class="hidden">
+                                <label for="plan-duration" class="block text-lg font-medium text-gray-300">How long is your plan?</label>
+                                <select id="plan-duration" name="planDuration" class="mt-2 block w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-3 text-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500">
+                                    <option value="8">8 Weeks</option>
+                                    <option value="12" selected>12 Weeks</option>
+                                    <option value="16">16 Weeks</option>
+                                    <option value="20">20 Weeks</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p id="goal-error" class="text-red-400 mt-4 hidden"></p>
+                    </div>
+
+                    <!-- ===== STEP 2: PACES ===== -->
+                    <div id="step-2" class="wizard-step hidden">
+                        <h2 class="text-3xl font-bold text-white">What's your pace?</h2>
+                        <p class="text-gray-400 mt-2">Enter any recent race time (or your best guess) in HH:MM. We'll use this to set your training paces in min/km.</p>
+                        <div class="mt-6 grid grid-cols-2 gap-4">
+                            <div class="col-span-2 text-lg">5k</div>
+                            <input type="number" id="pace-5k-h" placeholder="hh" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-lg text-center [appearance:textfield] focus:outline-none focus:ring-2 focus:ring-sky-500" min="0">
+                            <input type="number" id="pace-5k-m" placeholder="mm" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-lg text-center [appearance:textfield] focus:outline-none focus:ring-2 focus:ring-sky-500" min="0" max="59">
+                            
+                            <div class="col-span-2 text-lg mt-2">10k</div>
+                            <input type="number" id="pace-10k-h" placeholder="hh" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-lg text-center [appearance:textfield] focus:outline-none focus:ring-2 focus:ring-sky-500" min="0">
+                            <input type="number" id="pace-10k-m" placeholder="mm" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-lg text-center [appearance:textfield] focus:outline-none focus:ring-2 focus:ring-sky-500" min="0" max="59">
+
+                            <div class="col-span-2 text-lg mt-2">Half Marathon</div>
+                            <input type="number" id="pace-hm-h" placeholder="hh" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-lg text-center [appearance:textfield] focus:outline-none focus:ring-2 focus:ring-sky-500" min="0">
+                            <input type="number" id="pace-hm-m" placeholder="mm" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-lg text-center [appearance:textfield] focus:outline-none focus:ring-2 focus:ring-sky-500" min="0" max="59">
+
+                            <div class="col-span-2 text-lg mt-2">Full Marathon</div>
+                            <input type="number" id="pace-m-h" placeholder="hh" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-lg text-center [appearance:textfield] focus:outline-none focus:ring-2 focus:ring-sky-500" min="0">
+                            <input type="number" id="pace-m-m" placeholder="mm" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-lg text-center [appearance:textfield] focus:outline-none focus:ring-2 focus:ring-sky-500" min="0" max="59">
+                        </div>
+                        <p id="pace-error" class="text-red-400 mt-4 hidden">Please enter at least one valid race time.</p>
+                    </div>
+
+                    <!-- ===== STEP 3: FREQUENCY ===== -->
+                    <div id="step-3" class="wizard-step hidden">
+                        <h2 class="text-3xl font-bold text-white">How often can you run?</h2>
+                        <p class="text-gray-400 mt-2">Choose how many days per week you'd like to run.</p>
+                        <div class="mt-6 space-y-3">
+                            <input type="radio" name="runFrequency" value="3" id="freq-3" class="sr-only radio-card">
+                            <label for="freq-3" class="block cursor-pointer p-5 bg-gray-800 border-2 border-gray-700 rounded-xl transition duration-200 hover:border-sky-600">
+                                <h3 class="text-xl font-bold">3 days per week</h3>
+                                <p class="text-gray-400 mt-1">Great for beginners or busy schedules.</p>
+                            </label>
+                            
+                            <input type="radio" name="runFrequency" value="4" id="freq-4" class="sr-only radio-card">
+                            <label for="freq-4" class="block cursor-pointer p-5 bg-gray-800 border-2 border-gray-700 rounded-xl transition duration-200 hover:border-sky-600">
+                                <h3 class="text-xl font-bold">4 days per week</h3>
+                                <p class="text-gray-400 mt-1">A solid balance of running and recovery.</p>
+                            </label>
+
+                            <input type="radio" name="runFrequency" value="5" id="freq-5" class="sr-only radio-card">
+                            <label for="freq-5" class="block cursor-pointer p-5 bg-gray-800 border-2 border-gray-700 rounded-xl transition duration-200 hover:border-sky-600">
+                                <h3 class="text-xl font-bold">5 days per week</h3>
+                                <p class="text-gray-400 mt-1">Ideal for intermediate and advanced goals.</p>
+                            </label>
+
+                            <input type="radio" name="runFrequency" value="6" id="freq-6" class="sr-only radio-card">
+                            <label for="freq-6" class="block cursor-pointer p-5 bg-gray-800 border-2 border-gray-700 rounded-xl transition duration-200 hover:border-sky-600">
+                                <h3 class="text-xl font-bold">6 days per week</h3>
+                                <p class="text-gray-400 mt-1">For experienced runners targeting peak performance.</p>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- ===== STEP 4: AVAILABILITY ===== -->
+                    <div id="step-4" class="wizard-step hidden">
+                        <h2 class="text-3xl font-bold text-white">Which days can you run?</h2>
+                        <p class="text-gray-400 mt-2">Select all the days you're available to train. You must select at least <span id="min-days-required">3</span> days.</p>
+                        <div class="mt-6 grid grid-cols-3 sm:grid-cols-4 gap-3">
+                            <input type="checkbox" id="day-mon" value="Monday" class="sr-only day-checkbox">
+                            <label for="day-mon" class="block cursor-pointer p-4 text-center bg-gray-800 border-2 border-gray-700 rounded-xl transition duration-200 hover:border-sky-600 font-medium">Mon</label>
+                            
+                            <input type="checkbox" id="day-tue" value="Tuesday" class="sr-only day-checkbox">
+                            <label for="day-tue" class="block cursor-pointer p-4 text-center bg-gray-800 border-2 border-gray-700 rounded-xl transition duration-200 hover:border-sky-600 font-medium">Tue</label>
+
+                            <input type="checkbox" id="day-wed" value="Wednesday" class="sr-only day-checkbox">
+                            <label for="day-wed" class="block cursor-pointer p-4 text-center bg-gray-800 border-2 border-gray-700 rounded-xl transition duration-200 hover:border-sky-600 font-medium">Wed</label>
+
+                            <input type="checkbox" id="day-thu" value="Thursday" class="sr-only day-checkbox">
+                            <label for="day-thu" class="block cursor-pointer p-4 text-center bg-gray-800 border-2 border-gray-700 rounded-xl transition duration-200 hover:border-sky-600 font-medium">Thu</label>
+
+                            <input type="checkbox" id="day-fri" value="Friday" class="sr-only day-checkbox">
+                            <label for="day-fri" class="block cursor-pointer p-4 text-center bg-gray-800 border-2 border-gray-700 rounded-xl transition duration-200 hover:border-sky-600 font-medium">Fri</label>
+
+                            <input type="checkbox" id="day-sat" value="Saturday" class="sr-only day-checkbox">
+                            <label for="day-sat" class="block cursor-pointer p-4 text-center bg-gray-800 border-2 border-gray-700 rounded-xl transition duration-200 hover:border-sky-600 font-medium">Sat</label>
+
+                            <input type="checkbox" id="day-sun" value="Sunday" class="sr-only day-checkbox">
+                            <label for="day-sun" class="block cursor-pointer p-4 text-center bg-gray-800 border-2 border-gray-700 rounded-xl transition duration-200 hover:border-sky-600 font-medium">Sun</label>
+                        </div>
+                        <p id="day-error" class="text-red-400 mt-4 hidden">Please select at least <span class="min-days-text">3</span> days.</p>
+                    </div>
+
+                    <!-- ===== STEP 5: LONG RUN DAY ===== -->
+                    <div id="step-5" class="wizard-step hidden">
+                        <h2 class="text-3xl font-bold text-white">When is your long run?</h2>
+                        <p class="text-gray-400 mt-2">This is usually your longest run of the week. Pick from one of your available days.</p>
+                        <div id="long-run-options" class="mt-6 space-y-3">
+                            <!-- Options will be dynamically populated here -->
+                        </div>
+                    </div>
+                    
+                    <!-- ===== STEP 6: TRAINING STYLE ===== -->
+                    <div id="step-6" class="wizard-step hidden">
+                        <h2 class="text-3xl font-bold text-white">What's your training style?</h2>
+                        <p class="text-gray-400 mt-2">Choose the variety of workouts in your plan.</p>
+                        <div class="mt-6 space-y-4">
+                            <input type="radio" name="trainingStyle" value="simple" id="style-simple" class="sr-only radio-card">
+                            <label for="style-simple" class="block cursor-pointer p-6 bg-gray-800 border-2 border-gray-700 rounded-xl transition duration-200 hover:border-sky-600">
+                                <h3 class="text-xl font-bold">Simple</h3>
+                                <p class="text-gray-400 mt-1">Focuses on easy runs, one long run, and one simple interval session.</p>
+                            </label>
+                            
+                            <input type="radio" name="trainingStyle" value="varied" id="style-varied" class="sr-only radio-card" checked>
+                            <label for="style-varied" class="block cursor-pointer p-6 bg-gray-800 border-2 border-gray-700 rounded-xl transition duration-200 hover:border-sky-600">
+                                <h3 class="text-xl font-bold">Varied (Recommended)</h3>
+                                <p class="text-gray-400 mt-1">Includes a mix of easy runs, long runs, tempo, and interval workouts.</p>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- ===== STEP 7: REVIEW ===== -->
+                    <div id="step-7" class="wizard-step hidden">
+                        <h2 class="text-3xl font-bold text-white">Review Your Plan</h2>
+                        <p class="text-gray-400 mt-2">Does this look correct?</p>
+                        <div class="mt-6 p-6 bg-gray-800 rounded-xl space-y-4">
+                            <div>
+                                <span class="text-gray-400 font-medium">Goal</span>
+                                <p id="review-goal" class="text-white text-lg font-bold"></p>
+                            </div>
+                            <div>
+                                <span class="text-gray-400 font-medium">Training Paces (min/km)</span>
+                                <p id="review-paces" class="text-white text-lg font-bold"></p>
+                            </div>
+                            <div>
+                                <span class="text-gray-400 font-medium">Schedule</span>
+                                <p id="review-schedule" class="text-white text-lg font-bold"></p>
+                            </div>
+                            <div>
+                                <span class="text-gray-400 font-medium">Long Run Day</span>
+                                <p id="review-long-run" class="text-white text-lg font-bold"></p>
+                            </div>
+                            <div>
+                                <span class="text-gray-400 font-medium">Training Style</span>
+                                <p id="review-style" class="text-white text-lg font-bold"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+
+            <!-- Wizard Footer/Nav -->
+            <div class="fixed bottom-0 left-0 w-full bg-gray-900 p-4 border-t border-gray-700 flex justify-between items-center">
+                <button id="prev-step-btn" class="text-lg bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition duration-200">
+                    Back
+                </button>
+                <span id="step-indicator" class="text-gray-400 text-sm">Step 1 of 7</span>
+                <button id="next-step-btn" class="text-lg bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition duration-200">
+                    Next
+                </button>
+            </div>
+        </div>
+
+        <!-- ===== 4. MAIN DASHBOARD ===== -->
+        <div id="dashboard" class="h-full flex-col hidden">
+            <!-- Header -->
+            <header class="p-4 flex justify-between items-center border-b border-gray-800">
+                <div>
+                    <h1 id="plan-title" class="text-2xl font-bold text-white">Your Week</h1>
+                    <p id="plan-subtitle" class="text-sky-400"></p>
+                </div>
+                <button id="managePlanBtn" class="bg-gray-700 hover:bg-gray-600 text-white p-2 rounded-lg">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                </button>
+            </header>
+
+            <!-- Workout List -->
+            <div id="workout-list" class="flex-grow overflow-y-auto no-scrollbar p-4 space-y-3 pb-24">
+                <!-- Workout cards will be injected here -->
+            </div>
+
+            <!-- Footer -->
+            <footer class="fixed bottom-0 left-0 w-full bg-gray-900 p-4 border-t border-gray-700">
+                <button id="next-week-btn" class="w-full text-lg bg-sky-600 hover:bg-sky-500 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition duration-200 disabled:bg-gray-600 disabled:opacity-50">
+                    Finish Week
+                </button>
+                <p class="text-xs text-gray-600 text-center mt-2">User ID: <span id="user-id-display"></span></p>
+            </footer>
+        </div>
+    </div>
+
+    <!-- ===== 5. MODALS ===== -->
+
+    <!-- Log Workout Modal -->
+    <div id="log-workout-modal" class="modal fixed inset-0 bg-black bg-opacity-70 z-40 items-center justify-center">
+        <div class="bg-gray-800 p-6 rounded-2xl shadow-xl w-full max-w-sm mx-4">
+            <h2 class="text-2xl font-bold text-white mb-1">Log Workout</h2>
+            <p id="log-modal-title" class="text-gray-400 mb-6"></p>
+            
+            <input type="hidden" id="log-workout-id">
+
+            <div class="space-y-3">
+                <h3 class="text-lg font-medium text-gray-300">How did it feel? (RPE)</h3>
+                
+                <input type="radio" name="rpe" value="1" id="rpe-1" class="sr-only radio-card">
+                <label for="rpe-1" class="block cursor-pointer p-4 bg-gray-700 border-2 border-gray-600 rounded-xl transition duration-200">
+                    <h4 class="font-bold text-green-400">Light / Easy</h4>
+                    <p class="text-gray-300 text-sm">Felt very comfortable, could have gone much longer.</p>
+                </label>
+
+                <input type="radio" name="rpe" value="2" id="rpe-2" class="sr-only radio-card">
+                <label for="rpe-2" class="block cursor-pointer p-4 bg-gray-700 border-2 border-gray-600 rounded-xl transition duration-200">
+                    <h4 class="font-bold text-yellow-400">Moderate</h4>
+                    <p class="text-gray-300 text-sm">Felt challenging but sustainable. As expected.</p>
+                </label>
+
+                <input type="radio" name="rpe" value="3" id="rpe-3" class="sr-only radio-card">
+                <label for="rpe-3" class="block cursor-pointer p-4 bg-gray-700 border-2 border-gray-600 rounded-xl transition duration-200">
+                    <h4 class="font-bold text-red-400">Hard / Max Effort</h4>
+                    <p class="text-gray-300 text-sm">Felt very difficult, barely finished.</p>
+                </label>
+            </div>
+
+            <p id="rpe-error" class="text-red-400 mt-4 hidden">Please select an RPE value.</p>
+
+            <div class="mt-8 flex gap-3">
+                <button id="cancelLogButton" class="w-1/2 text-center text-lg bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-5 rounded-xl transition duration-200">
+                    Cancel
+                </button>
+                <button id="saveLogButton" class="w-1/2 text-center text-lg bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 px-5 rounded-xl transition duration-200">
+                    Save Log
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Manage Plan Modal -->
+    <div id="managePlanModal" class="modal fixed inset-0 bg-black bg-opacity-70 z-40 items-center justify-center">
+        <div class="bg-gray-800 p-6 rounded-2xl shadow-xl w-full max-w-sm mx-4">
+            <h2 class="text-2xl font-bold text-white mb-6">Manage Plan</h2>
+            
+            <div class="space-y-3">
+                <button id="manageRestartPlanBtn" class="w-full text-lg bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-3 px-5 rounded-xl transition duration-200">
+                    Restart Current Plan
+                </button>
+                <button id="manageNewPlanBtn" class="w-full text-lg bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-5 rounded-xl transition duration-200">
+                    Create a New Plan
+                </button>
+                <button id="manageDeletePlanBtn" class="w-full text-lg bg-red-700 hover:bg-red-600 text-white font-bold py-3 px-5 rounded-xl transition duration-200">
+                    Delete All My Data
+                </button>
+            </div>
+
+            <div class="mt-8">
+                <button id="manageCancelBtn" class="w-full text-center text-lg bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-5 rounded-xl transition duration-200">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Delete Modal -->
+    <div id="confirmDeleteModal" class="modal fixed inset-0 bg-black bg-opacity-70 z-50 items-center justify-center">
+        <div class="bg-gray-800 p-6 rounded-2xl shadow-xl w-full max-w-sm mx-4">
+            <h2 class="text-2xl font-bold text-red-400 mb-4">Are you sure?</h2>
+            <p class="text-gray-300 mb-6">This will permanently delete your user data and all workout history. This action cannot be undone.</p>
+            <div class="mt-8 flex gap-3">
+                <button id="cancelDeleteBtn" class="w-1/2 text-center text-lg bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-5 rounded-xl transition duration-200">
+                    Cancel
+                </button>
+                <button id="confirmDeleteBtn" class="w-1/2 text-center text-lg bg-red-700 hover:bg-red-600 text-white font-bold py-3 px-5 rounded-xl transition duration-200">
+                    Yes, Delete
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            signInAnonymously, 
+            signInWithCustomToken, 
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            getDoc, 
+            setDoc, 
+            updateDoc, 
+            deleteDoc, 
+            onSnapshot, 
+            collection, 
+            query, 
+            getDocs,
+            where,
+            deleteField,
+            runTransaction,
+            setLogLevel
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // === FIREBASE CONFIG (Provided by environment) ===
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : { apiKey: "YOUR_FALLBACK_API_KEY", authDomain: "YOUR_FALLBACK_AUTH_DOMAIN", projectId: "YOUR_FALLBACK_PROJECT_ID" }; // Fallback for local testing
+        
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        // === GLOBAL STATE ===
+        let app, db, auth;
+        let userId = null;
+        let currentPlan = null;
+        let workoutHistory = []; // Full history of logged workouts
+        let currentWizardStep = 1;
+        let totalWizardSteps = 7; // Updated from 6
+        let wizardData = {}; // To store data across wizard steps
+        let unsubscribePlan = () => {}; // To detach Firestore listener
+        let unsubscribeWorkouts = () => {}; // To detach Firestore listener
+
+        // === CONSTANTS ===
+        const DAY_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+        
+        // Pace Zones (as a function of 5k pace in min/km)
+        // These are simplified VDOT-based estimations
+        const PACE_ZONES = {
+            // Easy/Long Run: ~59-74% VDOT O2 Max
+            easy: { min: 1.25, max: 1.45 },
+            // Tempo: ~83-88% VDOT O2 Max
+            tempo: { min: 1.10, max: 1.15 },
+            // Interval: ~95-100% VDOT O2 Max
+            interval: { min: 0.98, max: 1.05 },
+        };
+        
+        // --- PLAN TEMPLATES ---
+        // These are the "base" templates. The generator will adapt them.
+        const PLAN_TEMPLATES = {
+            "5k": {
+                // ... (templates remain the same, paces will be applied in min/km)
+                beginner: [
+                    { type: "easy", details: "Run 20-25 min" },
+                    { type: "interval", details: "6x (1 min fast, 2 min walk/jog)" },
+                    { type: "long", details: "Run/Walk 30 min (5 min run, 1 min walk)" }
+                ],
+                intermediate: [
+                    { type: "easy", details: "Easy 30 min" },
+                    { type: "interval", details: "5x 400m @ 5k pace, 200m jog recovery" },
+                    { type: "easy", details: "Easy 30-40 min" },
+                    { type: "long", details: "Long 5-6 km" }
+                ],
+                simple: [ // New template for "Simple" style
+                    { type: "easy", details: "Easy 25-30 min" },
+                    { type: "long", details: "Long 5-6 km" },
+                    { type: "easy", details: "Easy 25-30 min" }
+                ]
+            },
+            "10k": {
+                beginner: [
+                    { type: "easy", details: "Easy 30 min" },
+                    { type: "interval", details: "4x 800m @ 10k pace, 400m jog recovery" },
+                    { type: "easy", details: "Easy 30 min" },
+                    { type: "long", details: "Long 6-8 km" }
+                ],
+                intermediate: [
+                    { type: "easy", details: "Easy 30-40 min" },
+                    { type: "tempo", details: "15-20 min @ Tempo Pace" },
+                    { type: "easy", details: "Easy 30-40 min" },
+                    { type: "easy", details: "Easy 20 min + 6x 30s Strides" },
+                    { type: "long", details: "Long 8-10 km" }
+                ],
+                simple: [
+                    { type: "easy", details: "Easy 30-40 min" },
+                    { type: "long", details: "Long 8-10 km" },
+                    { type: "easy", details: "Easy 30-40 min" }
+                ]
+            },
+            "half-marathon": {
+                beginner: [
+                    { type: "easy", details: "Easy 30 min" },
+                    { type: "tempo", details: "3x 1.5 km @ HM pace, 400m jog recovery" },
+                    { type: "easy", details: "Easy 40 min" },
+                    { type: "long", details: "Long 10-12 km" }
+                ],
+                intermediate: [
+                    { type: "easy", details: "Easy 45 min" },
+                    { type: "interval", details: "6x 800m @ 10k pace, 400m jog recovery" },
+                    { type: "easy", details: "Easy 45 min" },
+                    { type: "tempo", details: "20-25 min @ Tempo Pace" },
+                    { type: "long", details: "Long 12-14 km" }
+                ],
+                simple: [
+                    { type: "easy", details: "Easy 45 min" },
+                    { type: "long", details: "Long 12-14 km" },
+                    { type: "easy", details: "Easy 45 min" },
+                    { type: "easy", details: "Easy 30 min" }
+                ]
+            },
+            "full-marathon": {
+                beginner: [ // Assumes user can run a half marathon
+                    { type: "easy", details: "Easy 45 min" },
+                    { type: "tempo", details: "12-15 km @ Marathon Pace" },
+                    { type: "easy", details: "Easy 45-60 min" },
+                    { type: "long", details: "Long 18-20 km" }
+                ],
+                intermediate: [
+                    { type: "easy", details: "Easy 60 min" },
+                    { type: "interval", details: "8x 800m @ 10k pace, 400m jog recovery" },
+                    { type: "easy", details: "Easy 45 min + 6x 30s Strides" },
+                    { type: "tempo", details: "15-18 km @ Marathon Pace" },
+                    { type: "long", details: "Long 25-30 km" }
+                ],
+                simple: [
+                    { type: "easy", details: "Easy 45 min" },
+                    { type: "tempo", details: "12-15 km @ Marathon Pace" },
+                    { type: "easy", details: "Easy 45-60 min" },
+                    { type: "long", details: "Long 18-20 km" }
+                ]
+            },
+            "fitness": { // General Maintenance
+                beginner: [
+                    { type: "easy", details: "Easy 30 min" },
+                    { type: "interval", details: "8x (1 min fast, 2 min jog)" },
+                    { type: "long", details: "Easy 30-40 min" },
+                ],
+                intermediate: [
+                    { type: "easy", details: "Easy 40 min" },
+                    { type: "tempo", details: "15 min @ Tempo Pace" },
+                    { type: "easy", details: "Easy 30 min + 4x 30s Strides" },
+                    { type: "long", details: "Long 6-8 km" }
+                ],
+                simple: [
+                    { type: "easy", details: "Easy 30 min" },
+                    { type: "long", details: "Long 5-6 km" },
+                    { type: "easy", details: "Easy 30 min" }
+                ]
+            }
+        };
+
+        // --- STRENGTH TEMPLATES ---
+        const STRENGTH_ROUTINES = {
+            A: { 
+                title: "Strength A: Full Body",
+                details: "3x (8x Squats, 8x Push-ups, 10x Lunges (each leg), 30s Plank, 10x Glute Bridges)"
+            },
+            B: {
+                title: "Strength B: Core & Upper",
+                details: "3x (10x Dumbbell Rows, 10x Overhead Press, 15x Crunches, 15x Leg Raises, 30s Side Plank (each side))"
+            }
+        };
+
+        // === 1. INITIALIZATION & AUTH ===
+
+        /**
+         * Initializes the app, Firebase, and Auth.
+         */
+        async function initApp() {
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                setLogLevel('error'); // Set to 'debug' for more verbose logs
+
+                // Listen for auth state changes
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        document.getElementById('user-id-display').textContent = userId;
+                        // User is signed in, now check for a plan
+                        await checkUserPlan();
+                    } else {
+                        // User is signed out, sign in.
+                        await signInUser();
+                    }
+                });
+
+                // Start the sign-in process
+                await signInUser();
+
+            } catch (error) {
+                console.error("Firebase Init Error:", error);
+                showError("Could not connect to the database.");
+            }
+        }
+
+        /**
+         * Signs the user in (anonymously or with token).
+         */
+        async function signInUser() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Firebase Auth Error:", error);
+                showError("Authentication failed. Please refresh.");
+            }
+        }
+
+        // === 2. EVENT BINDING ===
+
+        /**
+         * Binds all static event listeners for the app.
+         */
+        function bindEventListeners() {
+            // Welcome Screen
+            document.getElementById('continue-plan-btn').addEventListener('click', showDashboard);
+            document.getElementById('restart-plan-btn').addEventListener('click', restartPlan);
+            document.getElementById('new-plan-btn').addEventListener('click', () => showScreen('setup-wizard'));
+
+            // Wizard Navigation
+            document.getElementById('prev-step-btn').addEventListener('click', prevWizardStep);
+            document.getElementById('next-step-btn').addEventListener('click', nextWizardStep);
+            
+            // Wizard Step 1 (Goal & Timeline)
+            document.getElementById('goal-race').addEventListener('change', updateGoalStepUI);
+            document.getElementById('goal-general').addEventListener('change', updateGoalStepUI);
+            document.getElementById('race-date').addEventListener('change', (e) => {
+                const weeks = getWeeksUntilRace(e.target.value);
+                const infoEl = document.getElementById('race-date-info');
+                if (weeks >= 4) {
+                    infoEl.textContent = `That's a ${weeks}-week plan.`;
+                    infoEl.classList.remove('text-red-400');
+                    infoEl.classList.add('text-gray-400');
+                } else {
+                    infoEl.textContent = `Date must be at least 4 weeks away.`;
+                    infoEl.classList.add('text-red-400');
+                    infoEl.classList.remove('text-gray-400');
+                }
+                infoEl.classList.remove('hidden');
+            });
+
+
+            // Wizard Step 3 (Frequency)
+            document.querySelectorAll('input[name="runFrequency"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    wizardData.runFrequency = parseInt(e.target.value, 10);
+                    // Update text in step 4
+                    document.getElementById('min-days-required').textContent = wizardData.runFrequency;
+                    document.querySelectorAll('.min-days-text').forEach(el => el.textContent = wizardData.runFrequency);
+                });
+            });
+
+            // Wizard Step 4 (Availability)
+            document.querySelectorAll('.day-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', updateLongRunOptions);
+            });
+
+            // Dashboard
+            document.getElementById('next-week-btn').addEventListener('click', advanceToNextWeek);
+            document.getElementById('managePlanBtn').addEventListener('click', () => showModal('managePlanModal'));
+
+            // Modals
+            document.getElementById('cancelLogButton').addEventListener('click', () => hideModal('log-workout-modal'));
+            document.getElementById('saveLogButton').addEventListener('click', saveWorkoutLog);
+            
+            document.getElementById('manageCancelBtn').addEventListener('click', () => hideModal('managePlanModal'));
+            document.getElementById('manageRestartPlanBtn').addEventListener('click', () => {
+                hideModal('managePlanModal');
+                restartPlan();
+            });
+            document.getElementById('manageNewPlanBtn').addEventListener('click', () => {
+                hideModal('managePlanModal');
+                showScreen('setup-wizard');
+            });
+            document.getElementById('manageDeletePlanBtn').addEventListener('click', () => {
+                hideModal('managePlanModal');
+                showModal('confirmDeleteModal');
+            });
+            
+            document.getElementById('cancelDeleteBtn').addEventListener('click', () => hideModal('confirmDeleteModal'));
+            document.getElementById('confirmDeleteBtn').addEventListener('click', deleteAllUserData);
+        }
+
+        // === 3. CORE STATE & ROUTING ===
+        
+        /**
+         * Checks if the user has a plan and routes accordingly.
+         */
+        async function checkUserPlan() {
+            if (!userId) return;
+
+            // Detach old listeners
+            unsubscribePlan();
+            unsubscribeWorkouts();
+            
+            const planRef = doc(db, 'artifacts', appId, 'users', userId);
+
+            // Set up a real-time listener for the plan
+            unsubscribePlan = onSnapshot(planRef, (docSnap) => {
+                if (docSnap.exists() && docSnap.data().currentPlan) {
+                    currentPlan = docSnap.data().currentPlan;
+                    // Plan exists, show welcome screen or dashboard
+                    showScreen('welcome-screen');
+                } else {
+                    // No plan, force setup
+                    currentPlan = null;
+                    showScreen('setup-wizard');
+                }
+                showScreen('loading-spinner', false); // Hide loading spinner
+            }, (error) => {
+                console.error("Error listening to plan:", error);
+                showError("Error loading your plan.");
+                showScreen('loading-spinner', false);
+            });
+        }
+
+        /**
+         * Attaches listeners and shows the main dashboard.
+         */
+        function showDashboard() {
+            if (!currentPlan) {
+                showScreen('setup-wizard'); // Should not happen, but as a fallback
+                return;
+            }
+
+            // Set dashboard titles
+            updateDashboardTitles();
+
+            // Set up listener for this week's workout logs
+            const workoutColRef = collection(db, 'artifacts', appId, 'users', userId, 'workouts');
+            const q = query(workoutColRef, where("week", "==", currentPlan.currentWeek));
+
+            unsubscribeWorkouts(); // Detach old workout listener
+            unsubscribeWorkouts = onSnapshot(q, (querySnapshot) => {
+                workoutHistory = [];
+                querySnapshot.forEach((doc) => {
+                    workoutHistory.push({ id: doc.id, ...doc.data() });
+                });
+                
+                // We have the plan and the logs, render the week
+                renderCurrentWeek();
+                
+            }, (error) => {
+                console.error("Error listening to workouts:", error);
+                showError("Error loading workout logs.");
+            });
+
+            showScreen('dashboard');
+        }
+
+        /**
+         * Updates the dashboard titles based on the current plan.
+         */
+        function updateDashboardTitles() {
+            if (currentPlan.goalTimeline === 'race') {
+                const weeksToGo = currentPlan.totalWeeks - currentPlan.currentWeek;
+                document.getElementById('plan-title').textContent = `${currentPlan.goal.toUpperCase()} Plan`;
+                document.getElementById('plan-subtitle').textContent = `Week ${currentPlan.currentWeek} of ${currentPlan.totalWeeks} | ${weeksToGo} weeks to go`;
+            } else {
+                document.getElementById('plan-title').textContent = `${currentPlan.goal.toUpperCase()} Plan`;
+                document.getElementById('plan-subtitle').textContent = `Week ${currentPlan.currentWeek} of ${currentPlan.totalWeeks}`;
+            }
+        }
+
+        /**
+         * Renders the current week's workouts and their states.
+         */
+        function renderCurrentWeek() {
+            const workoutList = document.getElementById('workout-list');
+            workoutList.innerHTML = ''; // Clear list
+            
+            const weekWorkouts = currentPlan.weeks[currentPlan.currentWeek];
+            if (!weekWorkouts) {
+                console.error(`Plan data missing for week ${currentPlan.currentWeek}`);
+                return;
+            }
+
+            let allCompleted = true;
+
+            weekWorkouts.forEach((workout, index) => {
+                const workoutId = `w${currentPlan.currentWeek}-d${index}`;
+                const log = workoutHistory.find(w => w.workoutId === workoutId);
+                const isCompleted = !!log;
+                
+                if (workout.type !== 'rest' && workout.type !== 'strength' && !isCompleted) {
+                    allCompleted = false;
+                }
+
+                const card = createWorkoutCard(workout, workoutId, isCompleted, log);
+                workoutList.appendChild(card);
+            });
+
+            // Enable/disable "Finish Week" button
+            document.getElementById('next-week-btn').disabled = !allCompleted;
+        }
+
+        /**
+         * Advances the plan to the next week.
+         */
+        async function advanceToNextWeek() {
+            const nextWeek = currentPlan.currentWeek + 1;
+            const isLastWeek = currentPlan.currentWeek === currentPlan.totalWeeks;
+            
+            // 1. Check if plan is finished
+            if (isLastWeek) {
+                showError("Congratulations! You've finished your plan!");
+                // Optionally, we could show a "finish" screen here
+                await deleteAllUserData(); // Start over
+                return;
+            }
+
+            // 2. Adapt next week's plan based on this week's RPE
+            let adaptationLevel = 0;
+            const currentWeekLogs = workoutHistory.filter(w => w.week === currentPlan.currentWeek);
+            const rpeSum = currentWeekLogs.reduce((acc, log) => acc + log.rpe, 0);
+            const avgRpe = rpeSum / (currentWeekLogs.length || 1);
+
+            if (avgRpe <= 1.3) adaptationLevel = 1; // Too Easy
+            if (avgRpe >= 2.7) adaptationLevel = -1; // Too Hard
+            
+            // 3. Adapt the *next* week
+            const nextWeekWorkouts = generateWorkoutsForWeek(nextWeek, adaptationLevel);
+            currentPlan.weeks[nextWeek] = nextWeekWorkouts; // Overwrite adapted week
+
+            // 4. Update the plan in Firestore
+            currentPlan.currentWeek = nextWeek;
+            try {
+                const planRef = doc(db, 'artifacts', appId, 'users', userId);
+                await updateDoc(planRef, { currentPlan });
+                
+                // showDashboard() will be called automatically by the listener,
+                // but we can call these to make the UI feel faster.
+                updateDashboardTitles();
+                renderCurrentWeek();
+
+            } catch (error) {
+                console.error("Error advancing to next week:", error);
+                showError("Could not advance to the next week.");
+            }
+        }
+
+        // === 4. PLAN LIFECYCLE (Create, Delete, Restart) ===
+
+        /**
+         * Validates and saves the new plan from the wizard.
+         */
+        async function createNewPlan() {
+            try {
+                showScreen('loading-spinner');
+                
+                // 1. Calculate Paces
+                const paces = calculatePaces(wizardData.paces);
+                if (!paces) {
+                    showWizardError(2, "Please enter at least one valid race time.");
+                    showScreen('setup-wizard');
+                    return;
+                }
+                
+                // 2. Calculate Total Weeks
+                let totalWeeks;
+                if (wizardData.goalTimeline === 'race') {
+                    totalWeeks = getWeeksUntilRace(wizardData.raceDate);
+                } else {
+                    totalWeeks = parseInt(wizardData.planDuration, 10);
+                }
+                
+                if (totalWeeks < 4) {
+                    showWizardError(1, "Plan must be at least 4 weeks long.");
+                    showScreen('setup-wizard');
+                    return;
+                }
+
+                // 3. Generate the full plan structure
+                const newPlan = {
+                    goal: wizardData.raceGoal,
+                    goalTimeline: wizardData.goalTimeline,
+                    raceDate: wizardData.raceDate || null,
+                    totalWeeks: totalWeeks,
+                    currentWeek: 1,
+                    paces: paces, // The calculated min/km paces
+                    basePaces: wizardData.paces, // The user's HH:MM input
+                    schedule: {
+                        runFrequency: wizardData.runFrequency,
+                        availableDays: wizardData.availableDays,
+                        longRunDay: wizardData.longRunDay
+                    },
+                    trainingStyle: wizardData.trainingStyle,
+                    weeks: {} // To be populated
+                };
+                
+                // 4. Generate workouts for all weeks
+                // We pass `newPlan` so the generator can access paces, schedule, etc.
+                for (let i = 1; i <= totalWeeks; i++) {
+                    const weekWorkouts = generateWorkoutsForWeek(i, 0, newPlan);
+                    newPlan.weeks[i] = weekWorkouts;
+                }
+                
+                currentPlan = newPlan; // Set global plan
+                
+                // 5. Save to Firestore
+                // This transaction deletes old workouts AND sets the new plan
+                await runTransaction(db, async (transaction) => {
+                    // 5a. Delete all old workout documents
+                    const workoutColRef = collection(db, 'artifacts', appId, 'users', userId, 'workouts');
+                    const oldWorkouts = await getDocs(query(workoutColRef));
+                    oldWorkouts.forEach((doc) => {
+                        transaction.delete(doc.ref);
+                    });
+
+                    // 5b. Set the new plan
+                    const planRef = doc(db, 'artifacts', appId, 'users', userId);
+                    transaction.set(planRef, { currentPlan: newPlan });
+                });
+
+                // 6. Go to dashboard
+                // The onSnapshot listener on planRef will fire, but we can call
+                // showDashboard() manually to make it feel instant.
+                showDashboard();
+
+            } catch (error) {
+                console.error("Error creating new plan:", error);
+                showError("Could not create your plan. Please try again.");
+                showScreen('setup-wizard');
+            }
+        }
+
+        /**
+         * Deletes all user data (plan and workouts).
+         */
+        async function deleteAllUserData() {
+            try {
+                showScreen('loading-spinner');
+                
+                // This transaction deletes the plan and all sub-collection workouts
+                await runTransaction(db, async (transaction) => {
+                    // 1. Delete all workout documents in the sub-collection
+                    const workoutColRef = collection(db, 'artifacts', appId, 'users', userId, 'workouts');
+                    const oldWorkouts = await getDocs(query(workoutColRef));
+                    oldWorkouts.forEach((doc) => {
+                        transaction.delete(doc.ref);
+                    });
+
+                    // 2. Delete the plan document itself
+                    const planRef = doc(db, 'artifacts', appId, 'users', userId);
+                    transaction.delete(planRef);
+                });
+                
+                // Reset local state
+                currentPlan = null;
+                workoutHistory = [];
+                hideModal('confirmDeleteModal');
+                
+                // checkUserPlan() will be triggered by the listener and
+                // will route to the setup wizard.
+                // We explicitly call it to speed this up.
+                await checkUserPlan();
+
+            } catch (error)
+            {
+                console.error("Error deleting user data:", error);
+                showError("Could not delete data. Please try again.");
+                showScreen('dashboard'); // Go back to safety
+            }
+        }
+
+        /**
+         * Resets the current plan back to week 1.
+         */
+        async function restartPlan() {
+            try {
+                showScreen('loading-spinner');
+
+                // 1. Create a "restarted" version of the plan
+                const restartedPlan = { ...currentPlan };
+                restartedPlan.currentWeek = 1;
+
+                // 2. Optionally, regenerate all weeks to reset adaptations
+                restartedPlan.weeks = {};
+                for (let i = 1; i <= restartedPlan.totalWeeks; i++) {
+                    const weekWorkouts = generateWorkoutsForWeek(i, 0, restartedPlan);
+                    restartedPlan.weeks[i] = weekWorkouts;
+                }
+                
+                currentPlan = restartedPlan; // Update local state
+
+                // 3. Save to Firestore (and delete old workouts)
+                await runTransaction(db, async (transaction) => {
+                    // 3a. Delete all old workout documents
+                    const workoutColRef = collection(db, 'artifacts', appId, 'users', userId, 'workouts');
+                    const oldWorkouts = await getDocs(query(workoutColRef));
+                    oldWorkouts.forEach((doc) => {
+                        transaction.delete(doc.ref);
+                    });
+
+                    // 3b. Set the restarted plan
+                    const planRef = doc(db, 'artifacts', appId, 'users', userId);
+                    transaction.update(planRef, { currentPlan: restartedPlan });
+                });
+
+                // 4. Go to dashboard
+                showDashboard();
+
+            } catch (error) {
+                console.error("Error restarting plan:", error);
+                showError("Could not restart your plan.");
+                showScreen('dashboard'); // Go back
+            }
+        }
+
+        // === 5. WORKOUT & ADAPTATION LOGIC ===
+        
+        /**
+         * Saves the log for a single workout to Firestore.
+         */
+        async function saveWorkoutLog() {
+            const workoutId = document.getElementById('log-workout-id').value;
+            const rpeInput = document.querySelector('input[name="rpe"]:checked');
+            
+            if (!rpeInput) {
+                document.getElementById('rpe-error').classList.remove('hidden');
+                return;
+            }
+            document.getElementById('rpe-error').classList.add('hidden');
+
+            const rpe = parseInt(rpeInput.value, 10);
+            
+            const log = {
+                workoutId: workoutId,
+                week: currentPlan.currentWeek,
+                rpe: rpe,
+                completedAt: new Date().toISOString()
+            };
+
+            try {
+                // Use workoutId as the document ID for easy lookup
+                const logRef = doc(db, 'artifacts', appId, 'users', userId, 'workouts', workoutId);
+                await setDoc(logRef, log);
+                
+                // Success
+                hideModal('log-workout-modal');
+                // The onSnapshot listener will handle the UI update
+
+            } catch (error) {
+                console.error("Error saving workout log:", error);
+                showError("Could not save your log. Please try again.");
+            }
+        }
+
+        /**
+         * Adapts a workout string based on RPE feedback.
+         * @param {string} details - The original workout string (e.g., "5x 400m")
+         * @param {number} adaptationLevel - -1 (harder), 0 (same), 1 (easier)
+         * @returns {string} - The new, adapted workout string.
+         */
+        function adaptWorkout(details, adaptationLevel) {
+            if (adaptationLevel === 0) return details;
+            
+            // Try to adapt interval reps
+            let match = details.match(/^(\d+)x\s*\((.*)\)$/i); // e.g., "5x (1 min fast...)"
+            if (match) {
+                let reps = parseInt(match[1], 10);
+                reps = Math.max(1, reps + adaptationLevel); // Add/subtract one rep
+                return `${reps}x (${match[2]})`;
+            }
+            
+            match = details.match(/^(\d+)x\s*([0-9]+m.*)$/i); // e.g., "5x 400m..."
+            if (match) {
+                let reps = parseInt(match[1], 10);
+                reps = Math.max(1, reps + adaptationLevel);
+                return `${reps}x ${match[2]}`;
+            }
+
+            // Try to adapt duration
+            match = details.match(/(\d+)\s*min/i); // e.g., "Run 30 min"
+            if (match) {
+                let duration = parseInt(match[1], 10);
+                let newDuration = duration + (duration * 0.1 * adaptationLevel); // +/- 10%
+                newDuration = Math.round(newDuration / 5) * 5; // Round to nearest 5 min
+                return details.replace(match[0], `${Math.max(10, newDuration)} min`);
+            }
+            
+            match = details.match(/(\d+)\s*km/i); // e.g., "Long 6 km"
+            if (match) {
+                let duration = parseInt(match[1], 10);
+                let newDuration = duration + (adaptationLevel); // +/- 1 km
+                return details.replace(match[0], `${Math.max(1, newDuration)} km`);
+            }
+
+            // No match, return original
+            return details;
+        }
+
+
+        // === 6. PLAN GENERATION (The "Brains") ===
+        
+        /**
+         * Generates the array of workout objects for a given week.
+         * @param {number} weekNum - The week number (1-based)
+         * @param {number} adaptationLevel - -1, 0, or 1
+         * @param {object} [plan=currentPlan] - The plan object to use (for new plan gen)
+         * @returns {Array<object>} - Array of workout objects for the 7 days.
+         */
+        function generateWorkoutsForWeek(weekNum, adaptationLevel, plan = currentPlan) {
+            const { schedule, goal, totalWeeks, trainingStyle } = plan;
+            const { runFrequency, availableDays, longRunDay } = schedule;
+
+            // 1. Get the "base" workouts for this plan type
+            // This is a simplified progression, a real app would have unique weeks
+            const level = (trainingStyle === 'simple') ? 'simple' : 'intermediate'; // Use 'simple' template if selected
+            const baseTemplate = PLAN_TEMPLATES[goal]?.[level] || PLAN_TEMPLATES['fitness'][level];
+
+            // 2. Classify base workouts (Key, Long, Easy)
+            const workoutTemplates = {
+                long: baseTemplate.find(w => w.type === 'long'),
+                key: baseTemplate.find(w => w.type === 'interval' || w.type === 'tempo'),
+                easy: baseTemplate.find(w => w.type === 'easy')
+            };
+
+            // Fallback if templates are missing
+            if (!workoutTemplates.long) workoutTemplates.long = { type: 'long', details: 'Long Run 45-60 min' };
+            if (!workoutTemplates.key && trainingStyle !== 'simple') workoutTemplates.key = { type: 'interval', details: '8x (1 min fast, 2 min jog)'};
+            if (!workoutTemplates.easy) workoutTemplates.easy = { type: 'easy', details: 'Easy 30 min' };
+            
+            let runCount = 0;
+            let weekSchedule = DAY_ORDER.map(day => ({ day: day, type: "rest", details: "Rest Day" }));
+            let usedDays = new Set();
+
+            // 3. Place Long Run
+            const longRunIndex = DAY_ORDER.indexOf(longRunDay);
+            if (longRunIndex !== -1 && availableDays.includes(longRunDay)) {
+                weekSchedule[longRunIndex] = { ...workoutTemplates.long, day: longRunDay };
+                runCount++;
+                usedDays.add(longRunDay);
+            }
+
+            // 4. Place Key Workout (if not "simple" style)
+            if (trainingStyle !== 'simple' && runFrequency >= 3 && workoutTemplates.key) {
+                const keySlot = findBestWorkoutSlot(availableDays, usedDays, longRunIndex, 2); // Try to be 2 days away
+                if (keySlot !== -1) {
+                    weekSchedule[keySlot] = { ...workoutTemplates.key, day: DAY_ORDER[keySlot] };
+                    runCount++;
+                    usedDays.add(DAY_ORDER[keySlot]);
+                }
+            }
+            
+            // 5. Place Easy Runs
+            let easyRunSlots = availableDays.filter(day => !usedDays.has(day));
+            for (const day of easyRunSlots) {
+                if (runCount < runFrequency) {
+                    const easyRunIndex = DAY_ORDER.indexOf(day);
+                    weekSchedule[easyRunIndex] = { ...workoutTemplates.easy, day: day };
+                    runCount++;
+                    usedDays.add(day);
+                }
+            }
+            
+            // 6. Add Strength & Apply Adaptations
+            let strengthPlaced = 0;
+            const finalWeek = weekSchedule.map(w => {
+                // Apply pace strings
+                if (w.details) {
+                    w.details = addPacesToWorkout(w.details, plan.paces);
+                }
+
+                // Apply adaptation
+                if (adaptationLevel !== 0 && (w.type === 'easy' || w.type === 'long' || w.type === 'interval' || w.type === 'tempo')) {
+                    w.details = adaptWorkout(w.details, adaptationLevel);
+                }
+
+                // Add strength
+                if (w.type === 'rest' && strengthPlaced < 2) {
+                    const routine = strengthPlaced === 0 ? STRENGTH_ROUTINES.A : STRENGTH_ROUTINES.B;
+                    strengthPlaced++;
+                    return { day: w.day, type: 'strength', title: routine.title, details: routine.details };
+                }
+                
+                return w;
+            });
+            
+            return finalWeek;
+        }
+
+        /**
+         * Finds the best day for a key workout, avoiding adjacent days.
+         * @param {Array<string>} availableDays - Days user can run
+         * @param {Set<string>} usedDays - Days already scheduled
+         * @param {number} longRunIndex - Index (0-6) of the long run
+         * @param {number} idealSeparation - Ideal days of separation
+         * @returns {number} - Index (0-6) of the best day, or -1
+         */
+        function findBestWorkoutSlot(availableDays, usedDays, longRunIndex, idealSeparation) {
+            let bestSlot = -1;
+            
+            // Try to place 2-3 days *before* long run
+            for (let i = idealSeparation; i <= 3; i++) {
+                let targetIndex = (longRunIndex - i + 7) % 7;
+                let targetDay = DAY_ORDER[targetIndex];
+                if (availableDays.includes(targetDay) && !usedDays.has(targetDay)) {
+                    return targetIndex;
+                }
+            }
+            
+            // If that fails, find *any* available day that's not adjacent
+            for (const day of availableDays) {
+                if (usedDays.has(day)) continue;
+                
+                const dayIndex = DAY_ORDER.indexOf(day);
+                const isAdjacent = Math.abs(dayIndex - longRunIndex) <= 1 || 
+                                 Math.abs(dayIndex - longRunIndex) === 6; // Wraparound
+                                 
+                if (!isAdjacent) {
+                    return dayIndex;
+                }
+            }
+
+            // If *still* fails, just grab the first available, non-used day
+            for (const day of availableDays) {
+                if (!usedDays.has(day)) {
+                    return DAY_ORDER.indexOf(day);
+                }
+            }
+            
+            return -1; // No slot
+        }
+
+
+        /**
+         * Injects pace recommendations into a workout string.
+         * @param {string} details - e.g., "20 min @ Tempo Pace"
+         * @param {object} paces - The user's pace object
+         * @returns {string} - e.g., "20 min @ Tempo Pace (4:30-4:50 min/km)"
+         */
+        function addPacesToWorkout(details, paces) {
+            if (!paces) return details;
+
+            if (details.includes('@ Tempo Pace') || details.includes('Marathon Pace')) {
+                return `${details} (${paces.tempo})`;
+            }
+            if (details.includes('@ 5k pace') || details.includes('@ 10k pace') || details.includes('Interval') || details.includes('fast')) {
+                return `${details} (${paces.interval})`;
+            }
+            if (details.includes('Easy') || details.includes('Long') || details.includes('Run') ) {
+                return `${details} (${paces.easy})`;
+            }
+            return details;
+        }
+
+
+        // === 7. PACE CALCULATION ===
+
+        /**
+         * Calculates VDOT-based training paces from any race time.
+         * @param {object} paceInputs - { "5k": 1200, "10k": 2500, ... }
+         * @returns {object} - { easy: "5:30-5:50", tempo: "...", ... }
+         */
+        function calculatePaces(paceInputs) {
+            // 1. Find the "best" race time (lowest VDOT equivalent)
+            // We'll use the 5k time as the primary metric.
+            let base5kTimeInSec = paceInputs["5k"];
+
+            if (!base5kTimeInSec) {
+                if (paceInputs["10k"]) base5kTimeInSec = paceInputs["10k"] / 2.05; // Estimate
+                else if (paceInputs["hm"]) base5kTimeInSec = paceInputs["hm"] / 4.4; // Estimate
+                else if (paceInputs["m"]) base5kTimeInSec = paceInputs["m"] / 9.2; // Estimate
+                else return null; // No valid time
+            }
+
+            // 2. Calculate 5k pace in minutes per KM
+            const base5kPaceMinPerKm = (base5kTimeInSec / 5) / 60;
+
+            // 3. Calculate zone paces
+            const easyPace = [base5kPaceMinPerKm * PACE_ZONES.easy.min, base5kPaceMinPerKm * PACE_ZONES.easy.max];
+            const tempoPace = [base5kPaceMinPerKm * PACE_ZONES.tempo.min, base5kPaceMinPerKm * PACE_ZONES.tempo.max];
+            const intervalPace = [base5kPaceMinPerKm * PACE_ZONES.interval.min, base5kPaceMinPerKm * PACE_ZONES.interval.max];
+
+            // 4. Format for display
+            return {
+                base5kPace: formatPace(base5kPaceMinPerKm),
+                easy: `${formatPace(easyPace[0])}-${formatPace(easyPace[1])} min/km`,
+                tempo: `${formatPace(tempoPace[0])}-${formatPace(tempoPace[1])} min/km`,
+                interval: `${formatPace(intervalPace[0])}-${formatPace(intervalPace[1])} min/km`,
+            };
+        }
+        
+        /**
+         * Helper to format a decimal pace (e.g., 8.5) to MM:SS (e.g., "8:30")
+         */
+        function formatPace(decimalMinutes) {
+            const minutes = Math.floor(decimalMinutes);
+            const seconds = Math.round((decimalMinutes - minutes) * 60);
+            return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        /**
+         * Helper to get total seconds from HH:MM inputs.
+         */
+        function getSecondsFromInputs(hId, mId) {
+            const h = parseInt(document.getElementById(hId).value || 0, 10);
+            const m = parseInt(document.getElementById(mId).value || 0, 10);
+            if (h === 0 && m === 0) return null;
+            return (h * 3600) + (m * 60);
+        }
+
+        /**
+         * Helper to get weeks until a date.
+         */
+        function getWeeksUntilRace(raceDateStr) {
+            if (!raceDateStr) return 0;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Normalize
+            const raceDate = new Date(raceDateStr + 'T00:00:00'); // Assume local timezone
+            if (isNaN(raceDate.getTime())) return 0; // Invalid date
+            const diffTime = raceDate.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return Math.floor(diffDays / 7);
+        }
+
+        // === 8. UI RENDERING ===
+
+        /**
+         * Creates the HTML for a single workout card.
+         */
+        function createWorkoutCard(workout, workoutId, isCompleted, log) {
+            const card = document.createElement('div');
+            card.className = `p-4 rounded-xl shadow-lg transition duration-200 ${isCompleted ? 'bg-gray-800 opacity-70' : 'bg-gray-800'}`;
+            
+            const icon = getWorkoutIcon(workout.type);
+            const title = workout.title || (workout.type.charAt(0).toUpperCase() + workout.type.slice(1) + ' Run');
+            const rpeHtml = log ? `<span classRPE="${log.rpe} text-sm font-bold">${['', 'Easy', 'Moderate', 'Hard'][log.rpe]}</span>` : '';
+
+            // Don't show log button for strength or rest
+            const showLogButton = workout.type !== 'rest' && workout.type !== 'strength';
+
+            card.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${isCompleted ? 'bg-gray-700' : 'bg-sky-900'}">
+                            ${icon}
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-400">${workout.day}</p>
+                            <h3 class="text-lg font-bold text-white">${title}</h3>
+                        </div>
+                    </div>
+                    ${isCompleted 
+                        ? `<div class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-green-500">
+                               <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                           </div>`
+                        : (showLogButton
+                            ? `<button class="log-btn text-sm bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition duration-200" data-id="${workoutId}" data-title="${title}">Log</button>`
+                            : '')
+                    }
+                </div>
+                <div class="mt-4 pl-16">
+                    <p class="text-gray-300">${workout.details}</p>
+                </div>
+            `;
+            
+            // Add click listener for the log button
+            const logBtn = card.querySelector('.log-btn');
+            if (logBtn) {
+                logBtn.addEventListener('click', (e) => { 
+                    e.stopPropagation();
+                    document.getElementById('log-workout-id').value = workoutId;
+                    document.getElementById('log-modal-title').textContent = `${workout.day} - ${title}`;
+                    // Clear old RPE selection
+                    document.querySelectorAll('input[name="rpe"]').forEach(r => r.checked = false);
+                    document.getElementById('rpe-error').classList.add('hidden');
+                    showModal('log-workout-modal');
+                });
+            }
+
+            return card;
+        }
+
+        /**
+         * Gets the SVG icon for a workout type.
+         */
+        function getWorkoutIcon(type) {
+            switch(type) {
+                case 'run':
+                case 'easy':
+                case 'long':
+                    return '<svg class="w-6 h-6 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>';
+                case 'interval':
+                case 'tempo':
+                    return '<svg class="w-6 h-6 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8m-4-4V3L4 14h7v7l9-11h-7z"></path></svg>';
+                case 'strength':
+                    return '<svg class="w-6 h-6 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l-3 3m6 0l-3 3M9 12a3 3 0 11-6 0 3 3 0 016 0zm12 0a3 3 0 11-6 0 3 3 0 016 0zM9 12l6 6m-6-6l6-6"></path></svg>';
+                case 'rest':
+                    return '<svg class="w-6 h-6 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4-4 4M4 12a8 8 0 1116 0 8 8 0 01-16 0z"></path></svg>';
+                default:
+                    return '';
+            }
+        }
+
+        // === 9. UI HELPERS (Wizard, Modals, Utils) ===
+        
+        function updateGoalStepUI() {
+            const goalType = document.querySelector('input[name="goalTimeline"]:checked')?.value;
+            const raceOption = document.getElementById('race-date-option');
+            const durationOption = document.getElementById('plan-duration-option');
+            
+            if (goalType === 'race') {
+                raceOption.classList.remove('hidden');
+                durationOption.classList.add('hidden');
+            } else if (goalType === 'general') {
+                raceOption.classList.add('hidden');
+                durationOption.classList.remove('hidden');
+            } else {
+                raceOption.classList.add('hidden');
+                durationOption.classList.add('hidden');
+            }
+        }
+
+        /**
+         * Handles navigation to the next wizard step.
+         */
+        function nextWizardStep() {
+            if (!validateStep(currentWizardStep)) {
+                return;
+            }
+
+            // Save data from current step
+            collectWizardData(currentWizardStep);
+
+            if (currentWizardStep < totalWizardSteps) {
+                currentWizardStep++;
+                showWizardStep(currentWizardStep);
+            } else {
+                // Last step, create plan
+                createNewPlan();
+            }
+        }
+        
+        /**
+         * Handles navigation to the previous wizard step.
+         */
+        function prevWizardStep() {
+            if (currentWizardStep > 1) {
+                currentWizardStep--;
+                showWizardStep(currentWizardStep);
+            }
+        }
+
+        /**
+         * Displays the correct wizard step and updates UI.
+         */
+        function showWizardStep(stepNum) {
+            document.querySelectorAll('.wizard-step').forEach(step => step.classList.add('hidden'));
+            document.getElementById(`step-${stepNum}`).classList.remove('hidden');
+            
+            // Update progress bar
+            const percent = ((stepNum - 1) / (totalWizardSteps - 1)) * 100;
+            document.getElementById('progress-bar').style.width = `${percent}%`;
+
+            // Update footer
+            document.getElementById('prev-step-btn').classList.toggle('hidden', stepNum === 1);
+            document.getElementById('step-indicator').textContent = `Step ${stepNum} of ${totalWizardSteps}`;
+            
+            const nextBtn = document.getElementById('next-step-btn');
+            if (stepNum === totalWizardSteps) {
+                nextBtn.textContent = "Create Plan";
+                populateWizardReview(); // Populate data for review
+            } else {
+                nextBtn.textContent = "Next";
+            }
+        }
+        
+        /**
+         * Validates the inputs for the current wizard step.
+         */
+        function validateStep(stepNum) {
+            clearWizardErrors();
+            switch(stepNum) {
+                case 1: // Goal & Timeline
+                    const goalTimeline = document.querySelector('input[name="goalTimeline"]:checked')?.value;
+                    if (!goalTimeline) {
+                        showWizardError(1, "Please select a goal type.");
+                        return false;
+                    }
+                    if (goalTimeline === 'race') {
+                        const raceDate = document.getElementById('race-date').value;
+                        if (!raceDate) {
+                            showWizardError(1, "Please select a race date.");
+                            return false;
+                        }
+                        const weeks = getWeeksUntilRace(raceDate);
+                        if (weeks < 4) {
+                            showWizardError(1, "Race date must be at least 4 weeks away.");
+                            return false;
+                        }
+                    }
+                    return true;
+                case 2: // Paces
+                    const paces = {
+                        "5k": getSecondsFromInputs('pace-5k-h', 'pace-5k-m'),
+                        "10k": getSecondsFromInputs('pace-10k-h', 'pace-10k-m'),
+                        "hm": getSecondsFromInputs('pace-hm-h', 'pace-hm-m'),
+                        "m": getSecondsFromInputs('pace-m-h', 'pace-m-m'),
+                    };
+                    if (Object.values(paces).every(p => p === null)) {
+                        showWizardError(2, "Please enter at least one valid race time.");
+                        return false;
+                    }
+                    return true;
+                case 3: // Frequency
+                    return !!document.querySelector('input[name="runFrequency"]:checked');
+                case 4: // Availability
+                    const selectedDays = document.querySelectorAll('.day-checkbox:checked').length;
+                    const requiredDays = wizardData.runFrequency;
+                    if (selectedDays < requiredDays) {
+                        showWizardError(4, `Please select at least ${requiredDays} days.`);
+                        return false;
+                    }
+                    return true;
+                case 5: // Long Run
+                    return !!document.querySelector('input[name="longRunDay"]:checked');
+                case 6: // Training Style
+                    return !!document.querySelector('input[name="trainingStyle"]:checked');
+                case 7: // Review
+                    return true; // No validation needed
+                default:
+                    return false;
+            }
+        }
+
+        /**
+         * Collects and stores data from the current wizard step.
+         */
+        function collectWizardData(stepNum) {
+            switch(stepNum) {
+                case 1:
+                    wizardData.goalTimeline = document.querySelector('input[name="goalTimeline"]:checked').value;
+                    wizardData.raceGoal = document.getElementById('race-goal').value;
+                    if (wizardData.goalTimeline === 'race') {
+                        wizardData.raceDate = document.getElementById('race-date').value;
+                    } else {
+                        wizardData.planDuration = document.getElementById('plan-duration').value;
+                    }
+                    break;
+                case 2:
+                    wizardData.paces = {
+                        "5k": getSecondsFromInputs('pace-5k-h', 'pace-5k-m'),
+                        "10k": getSecondsFromInputs('pace-10k-h', 'pace-10k-m'),
+                        "hm": getSecondsFromInputs('pace-hm-h', 'pace-hm-m'),
+                        "m": getSecondsFromInputs('pace-m-h', 'pace-m-m'),
+                    };
+                    break;
+                case 3:
+                    // Already saved on change
+                    break;
+                case 4:
+                    wizardData.availableDays = Array.from(document.querySelectorAll('.day-checkbox:checked')).map(cb => cb.value);
+                    break;
+                case 5:
+                    wizardData.longRunDay = document.querySelector('input[name="longRunDay"]:checked').value;
+                    break;
+                case 6:
+                    wizardData.trainingStyle = document.querySelector('input[name="trainingStyle"]:checked').value;
+                    break;
+            }
+        }
+        
+        /**
+         * Populates the review step with all collected wizard data.
+         */
+        function populateWizardReview() {
+            // Goal
+            if (wizardData.goalTimeline === 'race') {
+                document.getElementById('review-goal').textContent = `${wizardData.raceGoal.toUpperCase()} on ${wizardData.raceDate}`;
+            } else {
+                document.getElementById('review-goal').textContent = `${wizardData.planDuration}-Week ${wizardData.raceGoal.toUpperCase()} Plan`;
+            }
+            
+            // Paces
+            const calculatedPaces = calculatePaces(wizardData.paces);
+            document.getElementById('review-paces').textContent = `Easy: ${calculatedPaces.easy}, Tempo: ${calculatedPaces.tempo}`;
+            
+            // Schedule
+            document.getElementById('review-schedule').textContent = `${wizardData.runFrequency} runs per week on ${wizardData.availableDays.join(', ')}`;
+            
+            // Long Run
+            document.getElementById('review-long-run').textContent = wizardData.longRunDay;
+            
+            // Style
+            document.getElementById('review-style').textContent = wizardData.trainingStyle.charAt(0).toUpperCase() + wizardData.trainingStyle.slice(1);
+        }
+
+        /**
+         * Updates the long run options based on selected available days.
+         */
+        function updateLongRunOptions() {
+            const container = document.getElementById('long-run-options');
+            container.innerHTML = ''; // Clear old options
+            
+            const selectedDays = Array.from(document.querySelectorAll('.day-checkbox:checked')).map(cb => cb.value);
+            
+            selectedDays.forEach(day => {
+                const id = `lr-${day.toLowerCase()}`;
+                const optionHtml = `
+                    <input type="radio" name="longRunDay" value="${day}" id="${id}" class="sr-only radio-card">
+                    <label for="${id}" class="block cursor-pointer p-5 bg-gray-800 border-2 border-gray-700 rounded-xl transition duration-200 hover:border-sky-600">
+                        <h3 class="text-xl font-bold">${day}</h3>
+                    </label>
+                `;
+                container.innerHTML += optionHtml;
+            });
+        }
+        
+        /**
+         * Shows a specific screen (wizard, dashboard, etc.) and hides others.
+         */
+        function showScreen(screenId, show = true) {
+            if (screenId === 'loading-spinner') {
+                document.getElementById(screenId).style.display = show ? 'flex' : 'none';
+                return;
+            }
+            
+            // Hide all main screens
+            document.getElementById('loading-spinner').style.display = 'none';
+            document.getElementById('welcome-screen').classList.add('hidden');
+            document.getElementById('setup-wizard').classList.add('hidden');
+            document.getElementById('dashboard').classList.add('hidden');
+            
+            // Show the target screen
+            const screen = document.getElementById(screenId);
+            if (screen) {
+                screen.classList.remove('hidden');
+                // Use flex for full-screen containers
+                screen.classList.add('flex');
+            }
+        }
+        
+        /**
+         * Shows a modal dialog.
+         */
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.add('flex');
+        }
+
+        /**
+         * Hides a modal dialog.
+         */
+        function hideModal(modalId) {
+            document.getElementById(modalId).classList.remove('flex');
+        }
+        
+        /**
+         * Shows a generic error message (e.g., as a toast).
+         */
+        function showError(message) {
+            // This is a placeholder. A real app would use a toast notification.
+            console.error("APP ERROR:", message);
+            alert(message); // Use alert for now for visibility
+        }
+        
+        /**
+         * Shows a validation error in the wizard.
+         */
+        function showWizardError(stepNum, message) {
+            let errorEl;
+            if (stepNum === 1) errorEl = document.getElementById('goal-error');
+            if (stepNum === 2) errorEl = document.getElementById('pace-error');
+            if (stepNum === 4) errorEl = document.getElementById('day-error');
+            
+            if (errorEl) {
+                errorEl.textContent = message;
+                errorEl.classList.remove('hidden');
+            } else {
+                // Fallback for other steps
+                alert(message);
+            }
+        }
+
+        /**
+         * Clears all wizard validation errors.
+         */
+        function clearWizardErrors() {
+            document.getElementById('goal-error').classList.add('hidden');
+            document.getElementById('pace-error').classList.add('hidden');
+            document.getElementById('day-error').classList.add('hidden');
+        }
+
+        // === KICK-OFF ===
+        initApp();
+        bindEventListeners();
+
+    </script>
+</body>
+</html>
